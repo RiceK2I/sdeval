@@ -4,7 +4,40 @@ import glob         # Allows us to find files
 import progressbar  # Add a command-line progress bar
 import re           # package for regular expressions
 
+ColMapY2C = {
+	"2016": 3,
+	"2017": 4,
+	"2018": 5
+}
+
+CTBPAdm = ("E00023167", "Louise I Miller", "381902")
+PI2Admin = {
+	"E00019999": CTBPAdm,
+	"E00019998": CTBPAdm
+}
+
+# Import research award data
+PI_award_data = np.empty((0, 6), dtype="<U23")
+with open("Awards_by_Calendar_Year_data.csv", 'r') as csvfile:
+	reader = csv.reader(csvfile)
+	next(reader)	# skip title row
+
+	for row in reader:
+		# Each row contains 5 elemtns: [EmployeeID, PI_Full_Name, PIDM, CalYear_Award, Award_Amount]
+		(PI_ID, FName, PIDM) = PI2Admin.get(row[0], row[0:3])
+		try:
+			ind = np.where(PI_award_data[:, 0] == PI_ID)[0][0]
+		except:
+			ind = -1
+			PI_award_data = np.append(PI_award_data, np.zeros((1, PI_award_data.shape[1])), axis=0)
+			PI_award_data[ind, 0] = PI_ID
+			PI_award_data[ind, 1] = PIDM
+			PI_award_data[ind, 2] = FName
+		cind = ColMapY2C[row[3]]
+		PI_award_data[ind, cind] = float(PI_award_data[ind, cind]) + float(row[4])
+
 # Column indexes into the csv file for informatino we want to copy
+
 PI = 2
 EMAIL = 3
 DEPT = 4
@@ -30,12 +63,13 @@ EMAIL_PATTERN = re.compile(r"""
 PI_list = np.empty((0, 8), dtype="<U23")
 with open("PI_list.csv", 'r') as csvfile:
 	reader = csv.reader(csvfile)
-	next(reader)
+	next(reader)	# skip title row
 
 	for row in reader:
 		# Each row contains 7 elemtns: [FullName, First, Last, Email, Dept, NetID, PIDM, EmployeeID]
-		PI_list = np.append(PI_list, np.array(row).reshape((1,PI_list.shape[1])), axis=0)
-		
+		PI_list = np.append(PI_list, np.array(row).reshape((1, PI_list.shape[1])), axis=0)
+
+
 # print(PI_list)
 
 #	for i in range(0,PI_list.shape[0]):
@@ -61,7 +95,7 @@ for i, filename in enumerate((glob.glob("*_2017_SD.csv"))):
 			# remove "@" and emial domain from strings
 			row[0] = EMAIL_PATTERN.fullmatch(row[0]).groupdict()["id"]
 			try:
-				ind = np.where(PI_list[:,3] == row[0])[0][0]
+				ind = np.where(PI_list[:, 3] == row[0])[0][0]
 			except:
 				raise Exception("Missing PI email in PI_list {}".format(row[0]))
 
@@ -74,8 +108,8 @@ for i, filename in enumerate((glob.glob("*_2017_SD.csv"))):
 				sd = np.append(sd, tmp, axis=0)
 
 			# Now we just add the new information we just read in
-			index = np.where(sd[:,3] == row[0])[0][0]
-			sd[index,-3:] = row[1:]
+			index = np.where(sd[:, 3] == row[0])[0][0]
+			sd[index, -3:] = row[1:]
 
 # Pick out [FullName, First, Last, Email, Dept, NetID, PIDM, EmployeeID] 
 PI = sd[:, [0, 1, 2, 3, 4, 5, 6, 7]]
@@ -102,6 +136,8 @@ PI = np.append(PI, PI_tot.reshape((PI.shape[0], 1)), axis=1)
 PI = PI[PI_tot.argsort()]
 PI = PI[-1::-1]
 
+PI = np.append(PI, np.zeros((PI.shape[0], 1)), axis=1)
+
 core_hrs_year = PI[:, -2].astype("float_")
 
 # Create cloud pricing tuples [Cloud_type, core_hr_cost]
@@ -127,15 +163,16 @@ PI = np.append(PI, GCP_Sustaianed_Total.reshape((PI.shape[0], 1)), axis=1)
 PI = np.append(PI, Azure_Default_Total.reshape((PI.shape[0], 1)), axis=1)
 PI = np.append(PI, Azure_Reserved_Total.reshape((PI.shape[0], 1)), axis=1)
 
-with open("Awards_by_Calendar_Year_data.csv", 'r') as csvfile:
-	reader = csv.reader(csvfile)
-	next(reader)
 
-	for row in reader:
-		# Each row contains 7 elemtns: [FullName, First, Last, Email, Dept, NetID, PIDM, EmployeeID]
-		PI_list = np.append(PI_list, np.array(row).reshape((1,PI_list.shape[1])), axis=0)
-
-
+for i in range(PI.shape[0]):
+	#print(PI_award_data[:, 0], PI[i, 7])
+	try:
+		index = np.where(PI_award_data[:, 0] == PI[i, 7])[0][0]
+		award = PI_award_data[index, -3:].astype("float_")
+		award = np.mean(award)
+		PI[i, 11] = award
+	except:
+		print("MISSING " + PI[i, 0], PI[i, 7])
 
 headers = np.array([
 	"PI",
@@ -149,6 +186,7 @@ headers = np.array([
 	"USERS",
 	"HRS",
 	"TOT",
+	"AVG_AWARD",
 	"AWS_OnDemand",
 	"AWS_Reserved",
 	"GCP_Default",
