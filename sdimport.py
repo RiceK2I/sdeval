@@ -110,6 +110,7 @@ for i, filename in enumerate((glob.glob("*_2017_SD.csv"))):
 			# Now we just add the new information we just read in
 			index = np.where(sd[:, 3] == row[0])[0][0]
 			sd[index, -3:] = row[1:]
+			print(row[1:])
 
 # Pick out [FullName, First, Last, Email, Dept, NetID, PIDM, EmployeeID] 
 PI = sd[:, [0, 1, 2, 3, 4, 5, 6, 7]]
@@ -136,8 +137,6 @@ PI = np.append(PI, PI_tot.reshape((PI.shape[0], 1)), axis=1)
 PI = PI[PI_tot.argsort()]
 PI = PI[-1::-1]
 
-PI = np.append(PI, np.zeros((PI.shape[0], 1)), axis=1)
-
 core_hrs_year = PI[:, -2].astype("float_")
 
 # Create cloud pricing tuples [Cloud_type, core_hr_cost]
@@ -163,14 +162,15 @@ PI = np.append(PI, GCP_Sustaianed_Total.reshape((PI.shape[0], 1)), axis=1)
 PI = np.append(PI, Azure_Default_Total.reshape((PI.shape[0], 1)), axis=1)
 PI = np.append(PI, Azure_Reserved_Total.reshape((PI.shape[0], 1)), axis=1)
 
+# Add column for inserting average award data
+PI = np.append(PI, np.zeros((PI.shape[0], 1)), axis=1)
 
 for i in range(PI.shape[0]):
 	#print(PI_award_data[:, 0], PI[i, 7])
 	try:
 		index = np.where(PI_award_data[:, 0] == PI[i, 7])[0][0]
 		award = PI_award_data[index, -3:].astype("float_")
-		award = np.mean(award)
-		PI[i, 11] = award
+		PI[i, 17] = np.mean(award)
 	except:
 		print("MISSING " + PI[i, 0], PI[i, 7])
 
@@ -186,13 +186,13 @@ headers = np.array([
 	"USERS",
 	"HRS",
 	"TOT",
-	"AVG_AWARD",
 	"AWS_OnDemand",
 	"AWS_Reserved",
 	"GCP_Default",
 	"GCP_Sustaianed",
 	"Azure_Default",
-	"Azure_Reserved"])
+	"Azure_Reserved",
+	"Avg_Award"])
 
 PI = np.concatenate((headers.reshape((1, PI.shape[1])), PI), axis=0)
 
